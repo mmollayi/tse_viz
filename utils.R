@@ -43,12 +43,28 @@ get_symbols <- function(symbol = NULL, env = NULL, auto_assign = FALSE, verbose 
     return(content)
 }
 
-conv_date <- function(x) {
+conv_date_e2p <- function(x) {
     ConvCalendar::as.OtherDate(x, calendar = "persian") %>%
         unclass() %>% as_tibble() %>% 
         mutate_at(.vars = vars(day, month), stringr::str_pad, width = 2, side = "left", pad = "0") %>% 
         select(year, month, day) %>% 
         invoke(.f = paste, sep = "-")
+}
+
+conv_date_p2e <- function(x, sep = NULL) {
+    if (is.null(sep)) {
+        date_vec <- str_sub(x, c(1, 5, 7), c(4, 6, 8))
+    } else {
+        date_vec <- str_split(x, sep) %>% unlist()
+    }
+    
+    date_vec %>% 
+        as.integer() %>% 
+        matrix(ncol = 3, byrow = TRUE) %>% 
+        `colnames<-`(c("year", "month", "day")) %>% 
+        apply(2, list) %>% flatten() %>% 
+        invoke(.f = ConvCalendar::OtherDate, calendar = "persian") %>% 
+        as.Date()
 }
 
 pers_date_to_mat <- function(x) {
@@ -58,8 +74,36 @@ pers_date_to_mat <- function(x) {
 }
 
 `%:>:%` <- function(x, y) {
-    x <- pers_date_to_mat(x)
-    y <- pers_date_to_mat(y)
-    apply(((x - y) > 0) * 2 -1, 1, '*', c(100, 10, 1)) %>% t() %>% 
-        rowSums() %>% (function(x) x > 0)
+    x <- str_remove_all(x, "-") %>% as.integer()
+    y <- str_remove_all(y, "-") %>% as.integer()
+    x > y
+}
+
+`%:<:%` <- function(x, y) {
+    x <- str_remove_all(x, "-") %>% as.integer()
+    y <- str_remove_all(y, "-") %>% as.integer()
+    x < y
+}
+
+`%:==:%` <- function(x, y) {
+    x <- str_remove_all(x, "-") %>% as.integer()
+    y <- str_remove_all(y, "-") %>% as.integer()
+    x == y
+}
+
+`%:>=:%` <- function(x, y) {
+    x <- str_remove_all(x, "-") %>% as.integer()
+    y <- str_remove_all(y, "-") %>% as.integer()
+    x >= y
+}
+
+`%:<=:%` <- function(x, y) {
+    x <- str_remove_all(x, "-") %>% as.integer()
+    y <- str_remove_all(y, "-") %>% as.integer()
+    x <= y
+}
+
+calc_return <- function(x) {
+    y <- lead(x, defualt = last(adjusted))
+    (x - y) / y
 }
